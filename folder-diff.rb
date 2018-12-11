@@ -12,14 +12,14 @@ class FolderDiff
   SCOPE = Google::Apis::DriveV3::AUTH_DRIVE_METADATA_READONLY
 
   def initialize
-    folder_urls = ARGV
-    raise 'There must be two folder paths as arguments' if folder_urls.count != 2
+    folder_ids = ARGV
+    raise 'There must be two folder IDs as arguments' if folder_ids.count != 2
 
     @service = Google::Apis::DriveV3::DriveService.new
     @service.client_options.application_name = APPLICATION_NAME
     @service.authorization = authorize
 
-    run(folder_urls)
+    run(folder_ids)
   end
 
   def authorize
@@ -40,7 +40,7 @@ class FolderDiff
     credentials
   end
 
-  def run(folder_urls)
+  def run(folder_ids)
 
     folder_first = @service.list_files q: "'#{folder_urls.first}' in parents", fields: 'files/modified_time, files/name'
     folder_second = @service.list_files q: "'#{folder_urls.last}' in parents", fields: 'files/modified_time, files/name'
