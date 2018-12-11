@@ -41,9 +41,14 @@ class FolderDiff
   end
 
   def run(folder_ids)
+    folders = [
+      {id: folder_ids.first, files: []},
+      {id: folder_ids.last, files: []}
+    ]
 
-    folder_first = @service.list_files q: "'#{folder_urls.first}' in parents", fields: 'files/modified_time, files/name'
-    folder_second = @service.list_files q: "'#{folder_urls.last}' in parents", fields: 'files/modified_time, files/name'
+    folders.each do |folder|
+      get_all_files_from_folder(folder[:id], folder[:files], '/')
+    end
 
     folder_first_file_names = folder_first.files.map do |file|
       file.name
@@ -52,6 +57,7 @@ class FolderDiff
     folder_second_file_names = folder_second.files.map do |file|
       file.name
     end
+
 
     diff_files = []
     folder_first.files.each do |file1|
@@ -87,6 +93,19 @@ class FolderDiff
 
     new_files_in_folder_2.each do |file_name|
       puts "File only found in folder2: #{file_name}"
+    end
+  end
+end
+
+def get_all_files_from_folder(id, file_list, path)
+  root_files = (@service.list_files q: "'#{id}' in parents", fields: 'files/modified_time, files/name, files/mimeType, files/id').files
+
+  root_files.each do |file|
+    if file.mime_type.include? 'folder'
+      sub_path = "#{path}#{file.name}/"
+      get_all_files_from_folder(file.id, file_list, sub_path)
+    else
+      file_list << {file: file, path: path }
     end
   end
 end
