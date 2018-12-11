@@ -50,62 +50,50 @@ class FolderDiff
       get_all_files_from_folder(folder[:id], folder[:files], '/')
     end
 
-    folder_first_file_names = folder_first.files.map do |file|
-      file.name
-    end
-
-    folder_second_file_names = folder_second.files.map do |file|
-      file.name
-    end
-
-
-    diff_files = []
-    folder_first.files.each do |file1|
-      match = folder_second.files.detect do |file2|
-        file1.name == file2.name
-      end
-
-      if !match.nil? && file1.modified_time != match.modified_time
-        diff_files << [file1, match]
-      end
-    end
-
-    log(diff_files, folder_first_file_names, folder_second_file_names)
+    diff(folders)
   end
 
-  def log(diff_files, folder_first_file_names, folder_second_file_names)
-    puts "\e[1mModified Files:\e[22m\n\n"
+  def diff(folders)
+    # TODO iterating through both folders overcomplicates things. Simplify!
+    folders.each_with_index do |folder, folder_index|
+      # find all matching files in other folder, by full path
+      folder[:files].each do |source_folder_file|
+        match = []
+        folders[destination_folder_index(folder_index)][:files].each do |destination_folder_file|
+          if source_folder_file[:full_path] == destination_folder_file[:full_path]
+            match << source_folder_file << destination_folder_file
+            break
+          end
+        end
 
-    diff_files.each do |matches|
-      puts "file name: #{matches.first.name}\ntime_in_folder_1: #{matches.first.modified_time}\t time_in_folder_2: #{matches.last.modified_time}\n\n"
-    end
-
-    new_files_in_folder_1 = folder_first_file_names - folder_second_file_names
-    new_files_in_folder_2 = folder_second_file_names - folder_first_file_names
-
-    puts "\e[1mNew Files:\e[22m\n\n"
-
-    new_files_in_folder_1.each do |file_name|
-      puts "File only found in folder1: #{file_name}"
-    end
-
-    puts "\n"
-
-    new_files_in_folder_2.each do |file_name|
-      puts "File only found in folder2: #{file_name}"
+        if match.empty?
+          puts "-"*100
+          puts "'#{source_folder_file[:full_path]}' only present in folder#{folder_index + 1}\n\n"
+        elsif match && folder_index == 0 # don't repeat logging modified times on second iteration
+          if match.first[:file].modified_time != match.last[:file].modified_time
+            puts "-"*100
+            puts "'#{match.first[:full_path]}' has been modified:\n"
+            puts "modified_time in folder1: #{match.first[:file].modified_time}, in folder2: #{match.last[:file].modified_time}\n\n"
+          end
+        end
+      end
     end
   end
-end
 
-def get_all_files_from_folder(id, file_list, path)
-  root_files = (@service.list_files q: "'#{id}' in parents", fields: 'files/modified_time, files/name, files/mimeType, files/id').files
+  def destination_folder_index(x)
+    return (-x + 1) # 0->1, 1->0
+  end
 
-  root_files.each do |file|
-    if file.mime_type.include? 'folder'
-      sub_path = "#{path}#{file.name}/"
-      get_all_files_from_folder(file.id, file_list, sub_path)
-    else
-      file_list << {file: file, path: path }
+  def get_all_files_from_folder(id, file_list, path)
+    root_files = (@service.list_files q: "'#{id}' in parents", fields: 'files/modified_time, files/name, files/mimeType, files/id').files
+
+    root_files.each do |file|
+      if file.mime_type.include? 'folder'
+        sub_path = "#{path}#{file.name}/"
+        get_all_files_from_folder(file.id, file_list, sub_path)
+      else
+        file_list << { file: file, full_path: (path + file.name) }
+      end
     end
   end
 end
