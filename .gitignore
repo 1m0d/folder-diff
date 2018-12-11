@@ -1,1 +1,3 @@
+# ignore files inside auth folder, but not the folder itself
 auth/*
+!auth/.gitkeep
